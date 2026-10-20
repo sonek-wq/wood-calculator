@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#4e3422">
+    <title>Wood Calculator</title>
+    <style>
+        :root {
+            --calc-bg: #4e3422; /* ベースの濃い木の色 */
+            --calc-border: #362215;
+            --display-bg: #eaddd5; /* サンドベージュ系の液晶背景 */
+            --display-color: #3b2818; /* ダークブラウンの文字色 */
+            --btn-num-bg: linear-gradient(145deg, #d8bea8, #c1a48c);
+            --btn-num-shadow: #997e69;
+            --btn-op-bg: linear-gradient(145deg, #99633c, #7a4b2a);
+            --btn-op-shadow: #522f18;
+            --btn-sp-bg: linear-gradient(145deg, #c4a183, #aa8667);
+            --btn-sp-shadow: #7e6047;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation; /* ダブルタップズーム防止 */
+        }
+
+        body {
+            background-color: #1a1a1a;
+            height: 100vh;
+            height: 100dvh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        .calculator {
+            width: 100%;
+            height: 100%;
+            max-width: 480px;
+            background-color: var(--calc-bg);
+            /* 木目調のテクスチャ（CSSグラデーション） */
+            background-image:
+                repeating-linear-gradient(90deg, rgba(0,0,0,0.02) 0px, rgba(0,0,0,0.02) 2px, transparent 2px, transparent 5px),
+                linear-gradient(135deg, #6b472e 0%, #3d2718 100%);
+            display: flex;
+            flex-direction: column;
+            /* Safe Areaを考慮したパディング */
+            padding: calc(env(safe-area-inset-top) + 20px) 20px calc(env(safe-area-inset-bottom) + 20px) 20px;
+            box-shadow: inset 0 0 30px rgba(0,0,0,0.7);
+        }
+
+        .display-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            background-color: var(--display-bg);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            /* 画面の奥まった立体感を表現 */
+            box-shadow: inset 0 6px 12px rgba(0,0,0,0.25), inset 0 1px 3px rgba(0,0,0,0.1), 0 2px 5px rgba(255,255,255,0.05);
+            border: 3px solid var(--calc-border);
+            position: relative;
+        }
+
+        .history {
+            font-size: 1.3rem;
+            color: #9c8a7b;
+            text-align: right;
+            min-height: 1.6rem;
+            margin-bottom: 8px;
+            font-family: 'SF Mono', ui-monospace, monospace;
+        }
+
+        .current {
+            font-size: 4.5rem;
+            color: var(--display-color);
+            text-align: right;
+            font-weight: 400;
+            line-height: 1.1;
+            font-family: 'SF Mono', ui-monospace, monospace;
+            overflow-x: auto;
+            white-space: nowrap;
+            -webkit-overflow-scrolling: touch;
+            letter-spacing: -1px;
+        }
+
+        .current::-webkit-scrollbar {
+            display: none;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            padding-bottom: 10px;
+        }
+
+        button {
+            border: none;
+            outline: none;
+            border-radius: 50px;
+            font-size: 2.2rem;
+            font-weight: 400;
+            aspect-ratio: 1 / 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            box-shadow: 0 6px 0 var(--btn-shadow), 0 10px 15px rgba(0,0,0,0.4);
+            transform: translateY(0);
+            transition: transform 0.08s ease-out, box-shadow 0.08s ease-out, filter 0.1s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ボタン表面のうっすらとした木目テクスチャ */
+        button::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background-image: repeating-linear-gradient(45deg, rgba(255,255,255,0.04) 0px, rgba(255,255,255,0.04) 1px, transparent 1px, transparent 4px);
+            pointer-events: none;
+            border-radius: inherit;
+        }
+
+        button:active {
+            transform: translateY(6px);
+            box-shadow: 0 0px 0 var(--btn-shadow), 0 2px 5px rgba(0,0,0,0.4);
+        }
+
+        .btn-num {
+            background: var(--btn-num-bg);
+            color: var(--display-color);
+            --btn-shadow: var(--btn-num-shadow);
+        }
+
+        .btn-op {
+            background: var(--btn-op-bg);
+            color: #fff;
+            --btn-shadow: var(--btn-op-shadow);
+            font-size: 2.6rem;
+        }
+
+        .btn-op.active {
+            filter: brightness(1.25);
+            box-shadow: 0 6px 0 var(--btn-shadow), 0 0 15px rgba(255, 255, 255, 0.4);
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        .btn-op.active:active {
+            box-shadow: 0 0px 0 var(--btn-shadow), 0 0 5px rgba(255, 255, 255, 0.4);
+        }
+
+        .btn-sp {
+            background: var(--btn-sp-bg);
+            color: var(--display-color);
+            --btn-shadow: var(--btn-sp-shadow);
+            font-size: 1.8rem;
+        }
+
+        .zero {
+            grid-column: span 2;
+            aspect-ratio: auto;
+            border-radius: 50px;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <div class="display-wrapper">
+            <div class="history" id="history"></div>
+            <div class="current" id="display">0</div>
+        </div>
+        <div class="keypad">
+            <button class="btn-sp" onclick="pressAC()" id="btn-ac">AC</button>
+            <button class="btn-sp" onclick="pressSign()">+/-</button>
+            <button class="btn-sp" onclick="pressPercent()">%</button>
+            <button class="btn-op" onclick="pressOp('/')" id="op-div">÷</button>
+
+            <button class="btn-num" onclick="pressNum('7')">7</button>
+            <button class="btn-num" onclick="pressNum('8')">8</button>
+            <button class="btn-num" onclick="pressNum('9')">9</button>
+            <button class="btn-op" onclick="pressOp('*')" id="op-mul">×</button>
+
+            <button class="btn-num" onclick="pressNum('4')">4</button>
+            <button class="btn-num" onclick="pressNum('5')">5</button>
+            <button class="btn-num" onclick="pressNum('6')">6</button>
+            <button class="btn-op" onclick="pressOp('-')" id="op-sub">−</button>
+
+            <button class="btn-num" onclick="pressNum('1')">1</button>
+            <button class="btn-num" onclick="pressNum('2')">2</button>
+            <button class="btn-num" onclick="pressNum('3')">3</button>
+            <button class="btn-op" onclick="pressOp('+')" id="op-add">+</button>
+
+            <button class="btn-num zero" onclick="pressNum('0')">0</button>
+            <button class="btn-num" onclick="pressDot()">.</button>
+            <button class="btn-op" onclick="pressEqual()">=</button>
+        </div>
+    </div>
+
+    <script>
+        let currentInput = '0';
+        let previousInput = '';
+        let operation = null;
+        let shouldResetScreen = false;
+
+        const displayEl = document.getElementById('display');
+        const historyEl = document.getElementById('history');
+        const acBtn = document.getElementById('btn-ac');
+
+        // カンマ区切りフォーマット
+        function formatNumber(numStr) {
+            if (numStr === 'Error') return numStr;
+            const parts = numStr.split('.');
+            parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+            return parts.join('.');
+        }
+
+        // 桁数に応じたフォントサイズの自動調整
+        function adjustFontSize() {
+            const len = currentInput.length;
+            if (len > 12) displayEl.style.fontSize = '2.4rem';
+            else if (len > 9) displayEl.style.fontSize = '3.2rem';
+            else if (len > 7) displayEl.style.fontSize = '3.8rem';
+            else displayEl.style.fontSize = '4.5rem';
+            
+            // 溢れた場合は右端にスクロール
+            displayEl.scrollLeft = displayEl.scrollWidth;
+        }
+
+        // 画面の更新
+        function updateDisplay() {
+            displayEl.innerText = formatNumber(currentInput);
+            adjustFontSize();
+            acBtn.innerText = (currentInput !== '0' || previousInput !== '') ? 'C' : 'AC';
+        }
+
+        // 履歴の更新
+        function updateHistory() {
+            if (operation) {
+                const sym = operation === '*' ? '×' : operation === '/' ? '÷' : operation === '-' ? '−' : '+';
+                historyEl.innerText = `${formatNumber(previousInput)} ${sym}`;
+            } else {
+                historyEl.innerText = '';
+            }
+        }
+
+        // 数字入力
+        function pressNum(num) {
+            removeActiveOp();
+            if (currentInput === '0' || shouldResetScreen) {
+                currentInput = num;
+                shouldResetScreen = false;
+            } else {
+                // 最大15桁まで
+                if (currentInput.replace(/[^0-9]/g, '').length < 15) {
+                    currentInput += num;
+                }
+            }
+            updateDisplay();
+        }
+
+        // 小数点入力
+        function pressDot() {
+            removeActiveOp();
+            if (shouldResetScreen) {
+                currentInput = '0.';
+                shouldResetScreen = false;
+            } else if (!currentInput.includes('.')) {
+                currentInput += '.';
+            }
+            updateDisplay();
+        }
+
+        // AC / C ボタン
+        function pressAC() {
+            if (acBtn.innerText === 'C') {
+                currentInput = '0';
+                if (operation) {
+                    shouldResetScreen = true;
+                    highlightOp(operation);
+                }
+            } else {
+                currentInput = '0';
+                previousInput = '';
+                operation = null;
+                shouldResetScreen = false;
+                removeActiveOp();
+            }
+            updateHistory();
+            updateDisplay();
+        }
+
+        // 正負反転 (+/-)
+        function pressSign() {
+            if (currentInput === 'Error') return;
+            if (currentInput !== '0') {
+                currentInput = currentInput.startsWith('-') ? currentInput.substring(1) : '-' + currentInput;
+                updateDisplay();
+            }
+        }
+
+        // パーセント (%)
+        function pressPercent() {
+            if (currentInput === 'Error') return;
+            const val = parseFloat(currentInput);
+            if (!isNaN(val)) {
+                let res = val / 100;
+                currentInput = String(Math.round(res * 1e12) / 1e12); // 浮動小数点誤差対策
+                updateDisplay();
+            }
+        }
+
+        // 四則演算
+        function pressOp(op) {
+            if (currentInput === 'Error') return;
+            
+            if (operation !== null && !shouldResetScreen) {
+                calculate();
+            }
+            
+            previousInput = currentInput;
+            operation = op;
+            shouldResetScreen = true;
+            updateHistory();
+            highlightOp(op);
+        }
+
+        // イコール (=)
+        function pressEqual() {
+            if (operation === null || shouldResetScreen) return;
+            calculate();
+            operation = null;
+            previousInput = '';
+            shouldResetScreen = true;
+            updateHistory();
+            removeActiveOp();
+        }
+
+        // 計算ロジック
+        function calculate() {
+            const prev = parseFloat(previousInput);
+            const curr = parseFloat(currentInput);
+            if (isNaN(prev) || isNaN(curr)) return;
+
+            let res;
+            switch (operation) {
+                case '+': res = prev + curr; break;
+                case '-': res = prev - curr; break;
+                case '*': res = prev * curr; break;
+                case '/': 
+                    if (curr === 0) {
+                        currentInput = 'Error';
+                        return;
+                    }
+                    res = prev / curr; 
+                    break;
+            }
+            res = Math.round(res * 1e12) / 1e12; // 浮動小数点誤差対策
+            currentInput = String(res);
+            updateDisplay();
+        }
+
+        // 演算子ボタンのハイライト
+        function highlightOp(op) {
+            removeActiveOp();
+            const map = { '+': 'op-add', '-': 'op-sub', '*': 'op-mul', '/': 'op-div' };
+            if (map[op]) document.getElementById(map[op]).classList.add('active');
+        }
+
+        // ハイライト解除
+        function removeActiveOp() {
+            document.querySelectorAll('.btn-op').forEach(btn => btn.classList.remove('active'));
+        }
+    </script>
+</body>
+</html>
